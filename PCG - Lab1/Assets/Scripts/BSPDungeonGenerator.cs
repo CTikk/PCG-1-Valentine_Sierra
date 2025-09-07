@@ -5,6 +5,11 @@ using UnityEngine;
 
 public class BSPDungeonGenerator : MonoBehaviour
 {
+    [Header("Integración con terreno (tiers)")]
+    public PerlinTerrainGenerator perlinRef; // arrástralo desde la escena
+    public float yOffsetOnTerrain = 0.02f;   // para evitar z-fighting
+    public bool floorsUseTierFlatY = true;   // pisos totalmente planos por tier
+
     [Header("Tamaño mapa (celdas)")]
     public int width = 40;
     public int height = 20;
@@ -31,6 +36,10 @@ public class BSPDungeonGenerator : MonoBehaviour
     public GameObject exitMarkerPrefab;
     public GameObject enemyPrefab;
     public int enemiesPerRoom = 5;
+
+    [Header("Máscara externa (opcional)")]
+    public bool[,] buildableMask;   // si es null, se ignora
+    public bool requirePlainsForRooms = true; // si true, exige mask=true para TODA la sala
 
     [Header("Símbolos del mapa")]
     public char floorChar = '.';
@@ -127,6 +136,8 @@ public class BSPDungeonGenerator : MonoBehaviour
     // ============= Generación principal =============
     public void Generate()
     {
+        EnsurePRNG();
+
         // reset
         rooms.Clear();
         leaves.Clear();
@@ -233,6 +244,27 @@ public class BSPDungeonGenerator : MonoBehaviour
         int ry = Range(leaf.y + 1, leaf.y + leaf.h - rh - 1);
 
         leaf.room = new Room { x = rx, y = ry, w = rw, h = rh };
+
+        // Si exige llanura (o al menos tierra), validar contra buildableMask:
+        if (requirePlainsForRooms && !RoomFitsMask(leaf.room))
+        {
+            // Intentar algunos reintentos para ubicar otra posición dentro de la hoja
+            bool placed = false;
+            for (int t = 0; t < 20 && !placed; t++)
+            {
+                rx = Range(leaf.x + 1, Mathf.Max(leaf.x + 1, leaf.x + leaf.w - rw - 1));
+                ry = Range(leaf.y + 1, Mathf.Max(leaf.y + 1, leaf.y + leaf.h - rh - 1));
+
+                var candidate = new Room { x = rx, y = ry, w = rw, h = rh };
+                if (RoomFitsMask(candidate))
+                {
+                    leaf.room = candidate;
+                    placed = true;
+                }
+            }
+
+            if (!placed) leaf.room = null; // esta hoja quedará sin sala
+        }
     }
 
     void FillRooms(Leaf leaf)
@@ -291,6 +323,22 @@ public class BSPDungeonGenerator : MonoBehaviour
         int x1 = a.CenterX, y1 = a.CenterY;
         int x2 = b.CenterX, y2 = b.CenterY;
 
+        // Si tenemos máscara, intenta BFS para evitar agua:
+        if (buildableMask != null)
+        {
+            var path = FindPath(new Vector2Int(y1, x1), new Vector2Int(y2, x2));
+            if (path != null && path.Count > 0)
+            {
+                foreach (var p in path)
+                {
+                    map[p.x, p.y] = floorChar; // ojo: p es (y,x)
+                }
+                return;
+            }
+            // Si no encontró, cae al conector "L" original (podría cruzar agua)
+        }
+
+        // --- Conector original (L) ---
         void HLine(int y, int xa, int xb)
         {
             int start = Mathf.Min(xa, xb);
@@ -324,6 +372,59 @@ public class BSPDungeonGenerator : MonoBehaviour
             if (Mathf.Abs(x1 - x2) >= Mathf.Abs(y1 - y2)) HLine(y1, x1, x2);
             else VLine(x1, y1, y2);
         }
+    }
+
+    List<Vector2Int> FindPath(Vector2Int start, Vector2Int goal)
+    {
+        if (buildableMask == null)
+        {
+            // Sin máscara = deja que el conector original haga su L
+            return null;
+        }
+
+        int H = buildableMask.GetLength(0);
+        int W = buildableMask.GetLength(1);
+
+        bool InB(int y, int x) => y >= 0 && y < H && x >= 0 && x < W;
+
+        var q = new Queue<Vector2Int>();
+        var prev = new Dictionary<Vector2Int, Vector2Int>();
+        var seen = new HashSet<Vector2Int>();
+
+        q.Enqueue(start);
+        seen.Add(start);
+
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            if (cur == goal) break;
+
+            foreach (var d in dirs)
+            {
+                var nx = cur + d;
+                if (!InB(nx.y, nx.x)) continue;
+                if (!buildableMask[nx.y, nx.x]) continue; // evita agua/no construible
+
+                if (seen.Add(nx))
+                {
+                    prev[nx] = cur;
+                    q.Enqueue(nx);
+                }
+            }
+        }
+
+        if (!prev.ContainsKey(goal) && goal != start) return null; // no hubo camino
+                                                                   // reconstruir
+        var path = new List<Vector2Int>();
+        var p = goal;
+        path.Add(p);
+        while (p != start && prev.TryGetValue(p, out var pp))
+        {
+            p = pp; path.Add(p);
+        }
+        path.Reverse();
+        return path;
     }
 
     // ============= Player, Enemigos, Salida =============
@@ -396,7 +497,7 @@ public class BSPDungeonGenerator : MonoBehaviour
     }
 
     // ============= Build Prefabs =============
-    void BuildPrefabs()
+    public void BuildPrefabs()
     {
         // Limpia anterior
         if (builtParent != null) Destroy(builtParent.gameObject);
@@ -416,12 +517,18 @@ public class BSPDungeonGenerator : MonoBehaviour
                 if (c == wallChar)
                 {
                     if (wallPrefab != null)
+                    {
+                        pos.y = WorldYForCell(y, x, false); // pared sigue ondulación/mezcla del tier
                         Instantiate(wallPrefab, pos, Quaternion.identity, builtParent);
+                    }
                 }
                 else
                 {
                     if (floorPrefab != null)
+                    {
+                        pos.y = WorldYForCell(y, x, floorsUseTierFlatY); // piso plano exacto del tier
                         Instantiate(floorPrefab, pos, Quaternion.identity, builtParent);
+                    }
                 }
             }
         }
@@ -447,10 +554,72 @@ public class BSPDungeonGenerator : MonoBehaviour
     }
 
     // ============= Utilidades =============
+    void EnsurePRNG()
+    {
+        // Si quieres random por play, respeta useRandomSeed cada vez que generes
+        if (useRandomSeed)
+            seed = UnityEngine.Random.Range(int.MinValue / 2, int.MaxValue / 2);
+
+        if (prng == null)
+            prng = new System.Random(seed);
+    }
+    bool IsInsideMask(int y, int x)
+    {
+        return (buildableMask != null
+            && y >= 0 && y < buildableMask.GetLength(0)
+            && x >= 0 && x < buildableMask.GetLength(1));
+    }
+
+    bool IsBuildableCell(int y, int x)
+    {
+        if (buildableMask == null) return true;
+        if (!IsInsideMask(y, x)) return false;
+        return buildableMask[y, x];
+    }
+
+    bool RoomFitsMask(Room r)
+    {
+        if (buildableMask == null) return true;
+        for (int y = r.y; y < r.y + r.h; y++)
+            for (int x = r.x; x < r.x + r.w; x++)
+                if (!IsBuildableCell(y, x)) return false;
+        return true;
+    }
+
     int Range(int minInclusive, int maxInclusive)
     {
         if (maxInclusive < minInclusive) (minInclusive, maxInclusive) = (maxInclusive, minInclusive);
         return prng.Next(minInclusive, maxInclusive + 1);
+    }
+
+    float SamplePerlinY(int gridY, int gridX)
+    {
+        if (perlinRef == null) return 0f;
+        var map01 = perlinRef.GetHeight01Map();
+
+        // Clampear por seguridad (recuerda que tu map es [y,x])
+        gridY = Mathf.Clamp(gridY, 0, map01.GetLength(0) - 1);
+        gridX = Mathf.Clamp(gridX, 0, map01.GetLength(1) - 1);
+
+        float h01 = map01[gridY, gridX];
+        float y = perlinRef.heightCurve.Evaluate(h01) * perlinRef.heightMultiplier;
+        return y + yOffsetOnTerrain;
+    }
+
+    float WorldYForCell(int gy, int gx, bool flatForFloor = false)
+    {
+        if (perlinRef == null) return yOffsetOnTerrain;
+
+        float h01 = perlinRef.Height01Raw(gy, gx);
+        if (flatForFloor)
+        {
+            int ti = perlinRef.GetTierIndexFrom01(h01);
+            return perlinRef.GetTierFlatY(ti) + yOffsetOnTerrain;
+        }
+        else
+        {
+            return perlinRef.GetWorldYFrom01(h01) + yOffsetOnTerrain;
+        }
     }
 
     // Exponer mapa si se necesita post-procesar :)

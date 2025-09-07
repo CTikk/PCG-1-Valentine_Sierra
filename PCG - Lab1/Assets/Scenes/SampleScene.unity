@@ -348,7 +348,7 @@ MonoBehaviour:
   drawGizmos: 1
   buildPrefabsOnPlay: 1
   cellSize: 1
-  floorPrefab: {fileID: 1288043952190710427, guid: 2e8efcaa8a29a42479be1d33665ca16d, type: 3}
+  floorPrefab: {fileID: 5422634799287815866, guid: 995a402aec9e2e34d809f054df98f19c, type: 3}
   wallPrefab: {fileID: 4610322710099361864, guid: 55bcec69f09f8d7488479450ce3058f9, type: 3}
   playerMarkerPrefab: {fileID: 404139508110149851, guid: 3bbdb6b42a350e84bbb26eeb5de027ae, type: 3}
   exitMarkerPrefab: {fileID: 1247789393894430206, guid: ebc5dee8e53bdf74889c28848f1430ee, type: 3}

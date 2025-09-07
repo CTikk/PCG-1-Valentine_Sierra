@@ -1,10 +1,38 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\norik\\OneDrive\\Escritorio\\UTAL\\Semestre 6\\PCG-1\\PCG-1-Valentine_Sierra\\PCG - Lab1\\",
+  "WorkspaceRootPath": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|c:\\users\\norik\\onedrive\\escritorio\\utal\\semestre 6\\pcg-1\\pcg-1-valentine_sierra\\pcg - lab1\\assets\\scripts\\bspdungeongenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\perlinterraingenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\perlinterraingenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\villagegenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\villagegenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|c:\\users\\norik\\source\\repos\\pcg-1-valentine_sierra\\pcg - lab1\\assets\\scripts\\bspdungeongenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\bspdungeongenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\lsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\lsystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\turtledrawer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\turtledrawer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\lsystemcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\lsystemcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\perlintexture.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\perlintexture.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\assets\\scripts\\perlinui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B043EC11-90BB-3C75-AFFA-4CAE4BF6A6DB}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\perlinui.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,7 +42,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 8,
           "Children": [
             {
               "$type": "Bookmark",
@@ -26,13 +54,102 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "VillageGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\VillageGenerator.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\VillageGenerator.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\VillageGenerator.cs",
+              "RelativeToolTip": "Assets\\Scripts\\VillageGenerator.cs",
+              "ViewState": "AQIAAF8AAAAAAAAAAAAuwGcAAAAFAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-07T02:44:03.917Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "LSystemController.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\LSystemController.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\LSystemController.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\LSystemController.cs",
+              "RelativeToolTip": "Assets\\Scripts\\LSystemController.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABUAAAAQAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-01T04:08:28.291Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "TurtleDrawer.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\TurtleDrawer.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\TurtleDrawer.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\TurtleDrawer.cs",
+              "RelativeToolTip": "Assets\\Scripts\\TurtleDrawer.cs",
+              "ViewState": "AQIAALoAAAAAAAAAAAAuwMYAAAARAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-01T04:05:05.537Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "LSystem.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\LSystem.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\LSystem.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\LSystem.cs",
+              "RelativeToolTip": "Assets\\Scripts\\LSystem.cs",
+              "ViewState": "AQIAAAMAAAAAAAAAAAAAABwAAABQAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-09-01T03:53:00.399Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "PerlinTexture.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinTexture.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\PerlinTexture.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinTexture.cs",
+              "RelativeToolTip": "Assets\\Scripts\\PerlinTexture.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAACIAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-29T03:00:36.353Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "PerlinUI.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinUI.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\PerlinUI.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinUI.cs",
+              "RelativeToolTip": "Assets\\Scripts\\PerlinUI.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAEAAAAhAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-25T15:22:13.289Z"
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "PerlinTerrainGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinTerrainGenerator.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\PerlinTerrainGenerator.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\PerlinTerrainGenerator.cs",
+              "RelativeToolTip": "Assets\\Scripts\\PerlinTerrainGenerator.cs",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABkAAAA2AAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-25T15:21:21.013Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "BSPDungeonGenerator.cs",
-              "DocumentMoniker": "C:\\Users\\norik\\OneDrive\\Escritorio\\UTAL\\Semestre 6\\PCG-1\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\BSPDungeonGenerator.cs",
+              "DocumentMoniker": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\BSPDungeonGenerator.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\BSPDungeonGenerator.cs",
-              "ToolTip": "C:\\Users\\norik\\OneDrive\\Escritorio\\UTAL\\Semestre 6\\PCG-1\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\BSPDungeonGenerator.cs",
+              "ToolTip": "C:\\Users\\norik\\source\\repos\\PCG-1-Valentine_Sierra\\PCG - Lab1\\Assets\\Scripts\\BSPDungeonGenerator.cs",
               "RelativeToolTip": "Assets\\Scripts\\BSPDungeonGenerator.cs",
-              "ViewState": "AQIAAOgAAAAAAAAAAAASwPsAAAAqAAAA",
+              "ViewState": "AQIAAPsBAAAAAAAAAAAIwBMCAAARAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-08-18T14:49:28.036Z",
               "EditorCaption": ""
