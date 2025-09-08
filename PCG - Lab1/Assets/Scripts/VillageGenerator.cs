@@ -6,108 +6,100 @@ public class VillageGenerator : MonoBehaviour
     [Header("Refs")]
     public PerlinTerrainGenerator perlin;
     public BSPDungeonGenerator bsp;
-    public LSystem lsystem;
-    public TurtleDrawer turtlePrefab;
 
     [Header("Grid")]
     public int gridWidth = 80, gridHeight = 80;
     public float cellSize = 1f;
 
-    [Header("Árboles / deco")]
-    public int treesPerRoom = 8;
-    public float minTreeDistFromRoom = 2f;
-    public int treePlacementJitter = 5;
-    public float decoYOffset = 0.02f; // leve offset sobre terreno
+    [Header("Agua")]
+    public GameObject waterTilePrefab; // 1x1 en XZ, pivot en Base ideal
+    public float waterYOffset = 0.01f;
+    Transform waterParent;
 
-    [Header("Umbrales de terreno")]
-    [Range(0f, 1f)] public float waterThreshold = 0.30f;
-    public Vector2 plainBand = new Vector2(0.35f, 0.55f);
-    [Range(0f, 0.5f)] public float maxPlainSlope = 0.10f;
-
-    [Header("Alturas mundo")]
-    public float yOffset = 0.0f;  // elevar ligeramente los árboles/markers
-
-    // --- Internos ---
-    bool[,] waterMask, plainMask, landMask;
-
-    void Start()
-    {
-        GenerateVillage();
-    }
+    void Start() => GenerateVillage();
 
     public void GenerateVillage()
     {
-        // 1) Asegura que el Perlin esté generado
-        perlin.Generate(); // esto rellena noiseMap, minH, maxH
+        // 1) Generar terreno
+        perlin.Generate();
 
-        // 2) Sincroniza tamaños
+        // 2) Configurar máscaras:
+        // Agua = tier 0
+        perlin.waterTierIndices = new List<int> { 0 };
+
+        // Construible = todos los tiers excepto el más bajo,
+        // salvo caso especial de 1 tier (construir en ese único plano).
+        var buildable = new List<int>();
+        if (perlin.tiers <= 1) buildable.Add(0);
+        else for (int i = 1; i < perlin.tiers; i++) buildable.Add(i);
+        perlin.buildableTierIndices = buildable;
+
+        // Caminable = todo menos agua
+        var land = new List<int>();
+        for (int i = 1; i < perlin.tiers; i++) land.Add(i);
+        perlin.landTierIndices = land;
+
+        // 3) Sincronizar BSP
         bsp.width = gridWidth; bsp.height = gridHeight;
         bsp.cellSize = cellSize;
         bsp.perlinRef = perlin;
         bsp.yOffsetOnTerrain = 0.02f;
+        bsp.floorsUseTierFlatY = true;
 
-        // 3) Máscaras por tier
+        // 4) Pasar máscaras
         var buildableMask = perlin.GetBuildableMask();
         var landMask = perlin.GetLandMask();
         var waterMask = perlin.GetWaterMask();
 
-        // 4) Pásale sólo la "construible" al BSP (las salas no caerán sobre agua/pendiente alta)
         bsp.buildableMask = buildableMask;
+        //bsp.passableMaskForCorridors = landMask; // si luego usas pathfinding
 
-        // 5) Genera el BSP
+        // 5) Generar BSP
         bsp.Generate();
         if (bsp.buildPrefabsOnPlay) bsp.BuildPrefabs();
 
-        // 6) Coloca árboles/deco sólo en tierra y fuera de salas
-        PlaceTreesAroundRooms(landMask);
+        // 6) Construir agua visible
+        BuildWaterTiles(waterMask);
     }
 
-    void PlaceTreesAroundRooms(bool[,] landMask)
+    void BuildWaterTiles(bool[,] waterMask)
     {
-        var rooms = bsp.GetRooms();
-        var rnd = new System.Random(bsp.seed ^ 0x51F1A);
+        if (waterTilePrefab == null || waterMask == null) return;
 
-        int H = landMask.GetLength(0);
-        int W = landMask.GetLength(1);
-
-        bool InB(int y, int x) => y >= 0 && y < H && x >= 0 && x < W;
-
-        foreach (var room in rooms)
+        // limpia anterior
+        if (waterParent != null)
         {
-            if (room == null) continue;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) DestroyImmediate(waterParent.gameObject);
+            else Destroy(waterParent.gameObject);
+#else
+        Destroy(waterParent.gameObject);
+#endif
+        }
+        waterParent = new GameObject("WaterTiles").transform;
+        waterParent.SetParent(transform, false);
 
-            int placed = 0, tries = 0, maxTries = treesPerRoom * 50;
-            while (placed < treesPerRoom && tries < maxTries)
+        // ------------- CLAVES -------------
+        // 1) Origen: el del terreno (para que coincida con la malla)
+        Vector3 origin = perlin.transform.position;
+
+        // 2) Recorte: no más allá del grid de BSP
+        int Hmask = waterMask.GetLength(0);
+        int Wmask = waterMask.GetLength(1);
+        int H = Mathf.Min(Hmask, gridHeight);
+        int W = Mathf.Min(Wmask, gridWidth);
+
+        // 3) Evitar la última fila/col del noise (+1) si tu grid usa celdas [0..W-1]
+        for (int y = 0; y < H; y++)
+        {
+            for (int x = 0; x < W; x++)
             {
-                tries++;
-                int cx = room.CenterX, cy = room.CenterY;
-                int tx = cx + rnd.Next(-treePlacementJitter, treePlacementJitter + 1);
-                int ty = cy + rnd.Next(-treePlacementJitter, treePlacementJitter + 1);
+                if (!waterMask[y, x]) continue;
 
-                // fuera del rectángulo de la sala + margen
-                bool tooClose =
-                    tx >= room.x - minTreeDistFromRoom && tx < room.x + room.w + minTreeDistFromRoom &&
-                    ty >= room.y - minTreeDistFromRoom && ty < room.y + room.h + minTreeDistFromRoom;
-                if (tooClose || !InB(ty, tx) || !landMask[ty, tx]) continue;
-
-                // Altura EXACTA del terreno por tier
-                float y = perlin.GetWorldY(ty, tx) + decoYOffset;
-                var td = Instantiate(turtlePrefab, transform);
-                td.transform.position = new Vector3(tx * cellSize, y, ty * cellSize);
-
-                var seq = lsystem.Generate(Random.Range(3, 5));
-                td.Draw(seq);
-
-                placed++;
+                float wy = perlin.GetTierFlatY(0) + waterYOffset;
+                Vector3 pos = origin + new Vector3(x * cellSize, wy, y * cellSize);
+                Instantiate(waterTilePrefab, pos, Quaternion.identity, waterParent);
             }
         }
-    }
-
-    float SampleTerrainHeight01(int z, int x)
-    {
-        var h01 = perlin.GetHeight01Map();
-        z = Mathf.Clamp(z, 0, h01.GetLength(0) - 1);
-        x = Mathf.Clamp(x, 0, h01.GetLength(1) - 1);
-        return h01[z, x];
     }
 }

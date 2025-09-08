@@ -153,5 +153,28 @@ public class LSystemController : MonoBehaviour
         drawer.Draw(seq);
     }
 
+    public void Use3DTreePreset()
+    {
+        if (!lsystem) lsystem = ScriptableObject.CreateInstance<LSystem>();
+        lsystem.rules.Clear();
+        lsystem.axiom = "X";
+        lsystem.rules.Add(new LRule { symbol = 'X', productions = new[] { "F[+X][-X]&X" } });
+        lsystem.rules.Add(new LRule { symbol = 'F', productions = new[] { "FF" } });
+        lsystem.seed = Random.Range(int.MinValue / 2, int.MaxValue / 2);
+        lsystem.MarkDirty();
+
+        if (drawer) { drawer.is3D = true; drawer.angle = 22.5f; drawer.step = 0.25f; }
+    }
+
+    public void Generate3DTree(Vector3 worldPos, Quaternion? startRot = null)
+    {
+        Use3DTreePreset();
+        int iters = (int)(iterSlider ? iterSlider.value : 3);
+        var seq = lsystem.Generate(iters);
+        drawer.worldSpaceLines = true;
+        drawer.is3D = true;
+        drawer.DrawAt(seq, worldPos, startRot ?? Quaternion.LookRotation(Vector3.up, Vector3.forward));
+    }
+
     public void Clear() => drawer?.Clear();
 }

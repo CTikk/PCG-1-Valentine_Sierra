@@ -1,16 +1,10 @@
-using System;
-using System.Collections;
+Ôªøusing System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class BSPDungeonGenerator : MonoBehaviour
 {
-    [Header("IntegraciÛn con terreno (tiers)")]
-    public PerlinTerrainGenerator perlinRef; // arr·stralo desde la escena
-    public float yOffsetOnTerrain = 0.02f;   // para evitar z-fighting
-    public bool floorsUseTierFlatY = true;   // pisos totalmente planos por tier
-
-    [Header("TamaÒo mapa (celdas)")]
+    [Header("Tama√±o mapa (celdas)")]
     public int width = 40;
     public int height = 20;
 
@@ -26,27 +20,59 @@ public class BSPDungeonGenerator : MonoBehaviour
     public int seed = 0;
     public bool useRandomSeed = true;
 
-    [Header("VisualizaciÛn")]
-    public bool drawGizmos = true;
-    public bool buildPrefabsOnPlay = true;
-    public float cellSize = 1f;
-    public GameObject floorPrefab;
+    [Header("Prefabs (muros / marcadores / fallback piso)")]
+    public GameObject floorPrefab;          // ‚Üê respaldo si no asignas los de abajo
     public GameObject wallPrefab;
     public GameObject playerMarkerPrefab;
     public GameObject exitMarkerPrefab;
     public GameObject enemyPrefab;
     public int enemiesPerRoom = 5;
 
-    [Header("M·scara externa (opcional)")]
-    public bool[,] buildableMask;   // si es null, se ignora
-    public bool requirePlainsForRooms = true; // si true, exige mask=true para TODA la sala
+    [Header("Prefabs de piso")]
+    public GameObject roomFloorPrefab;      // ‚Üê HABITACI√ìN
+    public GameObject corridorFloorPrefab;  // ‚Üê PASILLO
 
-    [Header("SÌmbolos del mapa")]
-    public char floorChar = '.';
+    [Header("Visualizaci√≥n")]
+    public bool drawGizmos = true;
+    public bool buildPrefabsOnPlay = true;
+    public float cellSize = 1f;
+
+    [Header("Casas (opcional)")]
+    public bool spawnHouses = false;           // activar/desactivar
+    public GameObject housePrefab;             // prefab a instanciar en celdas interiores
+    [Range(0, 3)] public int houseMargin = 1;  // n¬∫ de celdas de margen con los bordes de la habitaci√≥n
+    [Range(0f, 1f)] public float houseFillProbability = 1f; // 1 = todas las celdas interiores
+    public float houseYOffset = 0f;            // peque√±o lift si hace falta
+    public PrefabPivot housePivot = PrefabPivot.Base; // c√≥mo corregir el pivot
+    public Vector2 houseJitter = new Vector2(0f, 0f); // desplazamiento aleatorio dentro de la celda
+
+    [Header("S√≠mbolos del mapa")]
+    public char floorChar = '.';    // pasillo
+    public char roomChar = 'r';    // habitaci√≥n
     public char wallChar = '#';
     public char enemyChar = 'E';
     public char playerChar = 'P';
     public char exitChar = 'S';
+
+    // ===== Integraci√≥n con terreno / tiers =====
+    public enum PrefabPivot { Center, Base }
+
+    [Header("Integraci√≥n con terreno")]
+    public PerlinTerrainGenerator perlinRef;
+    public float yOffsetOnTerrain = 0.02f;
+    public bool floorsUseTierFlatY = true;
+
+    [Header("Pivotes de prefabs")]
+    public PrefabPivot floorPivot = PrefabPivot.Center;
+    public PrefabPivot wallPivot = PrefabPivot.Center;
+    public float floorExtraLift = 0f;
+    public float wallExtraSink = 0f;
+
+    [Header("M√°scaras externas")]
+    public bool[,] buildableMask;             // d√≥nde pueden ir salas (ej. todos los tiers menos agua)
+
+    [Header("Restricciones de salas")]
+    public bool forbidMultiTierRooms = true;   // no permitir salas que crucen tiers
 
     // --- Internos ---
     private System.Random prng;
@@ -73,24 +99,15 @@ public class BSPDungeonGenerator : MonoBehaviour
         public Room room;
 
         public Leaf(int x, int y, int w, int h)
-        {
-            this.x = x; this.y = y; this.w = w; this.h = h;
-        }
+        { this.x = x; this.y = y; this.w = w; this.h = h; }
     }
 
-    public enum CorridorLogic
-    {
-        RandomOrder = 0,
-        HorizontalFirst = 1,
-        VerticalFirst = 2,
-        StraightAxis = 3 // escoge eje de mayor distancia
-    }
+    public enum CorridorLogic { RandomOrder, HorizontalFirst, VerticalFirst, StraightAxis }
 
     // ============= Ciclo de vida =============
     void Start()
     {
-        if (useRandomSeed) seed = UnityEngine.Random.Range(int.MinValue / 2, int.MaxValue / 2);
-        prng = new System.Random(seed);
+        EnsurePRNG();
         Generate();
         if (buildPrefabsOnPlay) BuildPrefabs();
     }
@@ -99,8 +116,8 @@ public class BSPDungeonGenerator : MonoBehaviour
     {
         if (!drawGizmos || map == null) return;
 
-        // Dibuja grid (piso/muro) + contornos de rooms y pasillos
-        Vector3 origin = transform.position;
+        Vector3 origin = perlinRef != null ? perlinRef.transform.position : transform.position;
+
         for (int y = 0; y < map.GetLength(0); y++)
         {
             for (int x = 0; x < map.GetLength(1); x++)
@@ -114,31 +131,30 @@ public class BSPDungeonGenerator : MonoBehaviour
                 }
                 else
                 {
-                    Gizmos.color = new Color(0.7f, 0.7f, 0.7f);
+                    Gizmos.color = (c == roomChar) ? new Color(0.9f, 0.9f, 0.5f) : new Color(0.7f, 0.7f, 0.7f);
                     Gizmos.DrawCube(pos + Vector3.up * 0.05f, new Vector3(cellSize, 0.1f, cellSize));
                 }
             }
         }
 
-        // Contornos de rooms
         Gizmos.color = Color.cyan;
         if (rooms != null)
         {
             foreach (var r in rooms)
             {
-                Vector3 p = origin + new Vector3(r.x * cellSize, 0f, r.y * cellSize);
+                Vector3 origin2 = perlinRef != null ? perlinRef.transform.position : transform.position;
+                Vector3 p = origin2 + new Vector3(r.x * cellSize, 0f, r.y * cellSize);
                 Vector3 size = new Vector3(r.w * cellSize, 0.03f, r.h * cellSize);
                 Gizmos.DrawWireCube(p + new Vector3(size.x * 0.5f, 0.2f, size.z * 0.5f), size);
             }
         }
     }
 
-    // ============= GeneraciÛn principal =============
+    // ============= Generaci√≥n principal =============
     public void Generate()
     {
         EnsurePRNG();
 
-        // reset
         rooms.Clear();
         leaves.Clear();
         root = new Leaf(0, 0, width, height);
@@ -167,6 +183,12 @@ public class BSPDungeonGenerator : MonoBehaviour
         PlacePlayer();
         PlaceEnemies(enemiesPerRoom);
         PlaceExit();
+    }
+
+    void EnsurePRNG()
+    {
+        if (useRandomSeed) seed = UnityEngine.Random.Range(int.MinValue / 2, int.MaxValue / 2);
+        if (prng == null) prng = new System.Random(seed);
     }
 
     // ============= BSP: Split =============
@@ -200,8 +222,7 @@ public class BSPDungeonGenerator : MonoBehaviour
     {
         if (leaf.left != null || leaf.right != null) return false;
 
-        // Decide eje preferente seg˙n relaciÛn ancho/alto (como en tu C++)
-        bool splitH = (leaf.w <= leaf.h); // si es m·s alto, corta horizontal, si es m·s ancho, corta vertical
+        bool splitH = (leaf.w <= leaf.h);
         if (leaf.w / (float)leaf.h >= 1.25f) splitH = false;
         else if (leaf.h / (float)leaf.w >= 1.25f) splitH = true;
 
@@ -232,7 +253,6 @@ public class BSPDungeonGenerator : MonoBehaviour
             return;
         }
 
-        // Hoja terminal => crear sala si cabe
         int maxW = Mathf.Min(maxRoomSize, leaf.w - 2);
         int maxH = Mathf.Min(maxRoomSize, leaf.h - 2);
         if (minRoomSize > maxW || minRoomSize > maxH) return;
@@ -243,28 +263,54 @@ public class BSPDungeonGenerator : MonoBehaviour
         int rx = Range(leaf.x + 1, leaf.x + leaf.w - rw - 1);
         int ry = Range(leaf.y + 1, leaf.y + leaf.h - rh - 1);
 
-        leaf.room = new Room { x = rx, y = ry, w = rw, h = rh };
+        var candidate = new Room { x = rx, y = ry, w = rw, h = rh };
 
-        // Si exige llanura (o al menos tierra), validar contra buildableMask:
-        if (requirePlainsForRooms && !RoomFitsMask(leaf.room))
+        if (!RoomAllowed(candidate))
         {
-            // Intentar algunos reintentos para ubicar otra posiciÛn dentro de la hoja
             bool placed = false;
-            for (int t = 0; t < 20 && !placed; t++)
+            for (int t = 0; t < 25 && !placed; t++)
             {
                 rx = Range(leaf.x + 1, Mathf.Max(leaf.x + 1, leaf.x + leaf.w - rw - 1));
                 ry = Range(leaf.y + 1, Mathf.Max(leaf.y + 1, leaf.y + leaf.h - rh - 1));
+                candidate = new Room { x = rx, y = ry, w = rw, h = rh };
+                if (RoomAllowed(candidate)) placed = true;
+            }
+            if (!placed) { leaf.room = null; return; }
+        }
 
-                var candidate = new Room { x = rx, y = ry, w = rw, h = rh };
-                if (RoomFitsMask(candidate))
+        leaf.room = candidate;
+    }
+
+    bool RoomAllowed(Room r)
+    {
+        // m√°scara de construible
+        if (buildableMask != null)
+        {
+            for (int y = r.y; y < r.y + r.h; y++)
+                for (int x = r.x; x < r.x + r.w; x++)
+                    if (!(y >= 0 && y < buildableMask.GetLength(0) &&
+                          x >= 0 && x < buildableMask.GetLength(1) &&
+                          buildableMask[y, x]))
+                        return false;
+        }
+
+        // un solo tier (si est√° activado)
+        if (forbidMultiTierRooms && perlinRef != null)
+        {
+            int? tier = null;
+            for (int y = r.y; y < r.y + r.h; y++)
+            {
+                for (int x = r.x; x < r.x + r.w; x++)
                 {
-                    leaf.room = candidate;
-                    placed = true;
+                    float h01 = perlinRef.Height01Raw(y, x);
+                    int ti = perlinRef.GetTierIndexFrom01(h01);
+                    if (tier == null) tier = ti;
+                    else if (ti != tier.Value) return false;
                 }
             }
-
-            if (!placed) leaf.room = null; // esta hoja quedar· sin sala
         }
+
+        return true;
     }
 
     void FillRooms(Leaf leaf)
@@ -281,11 +327,55 @@ public class BSPDungeonGenerator : MonoBehaviour
             rooms.Add(leaf.room);
             for (int y = leaf.room.y; y < leaf.room.y + leaf.room.h; y++)
                 for (int x = leaf.room.x; x < leaf.room.x + leaf.room.w; x++)
-                    map[y, x] = floorChar;
+                    map[y, x] = roomChar; // ‚Üê piso de HABITACI√ìN
         }
     }
 
-    // ============= ConexiÛn por centros =============
+    void BuildHouses(Vector3 origin)
+    {
+        if (!spawnHouses || housePrefab == null || rooms == null || rooms.Count == 0)
+            return;
+
+        Transform housesParent = new GameObject("Houses").transform;
+        housesParent.SetParent(builtParent != null ? builtParent : transform, false);
+
+        foreach (var r in rooms)
+        {
+            // dimensiones interiores v√°lidas
+            int innerW = r.w - houseMargin * 2;
+            int innerH = r.h - houseMargin * 2;
+            if (innerW <= 0 || innerH <= 0) continue;
+
+            for (int y = r.y + houseMargin; y < r.y + r.h - houseMargin; y++)
+            {
+                for (int x = r.x + houseMargin; x < r.x + r.w - houseMargin; x++)
+                {
+                    // Solo sobre celdas de habitaci√≥n (no pasillo / ni marcadores)
+                    char c = map[y, x];
+                    if (c != roomChar) continue;
+                    if (UnityEngine.Random.value > houseFillProbability) continue;
+
+                    float baseY = WorldYForCell(y, x, true); // usa tier plano de esa celda
+                    float yFinal = ApplyPivotOffsetY(housePrefab, housePivot, baseY, houseYOffset);
+
+                    // posici√≥n en el centro de la celda con peque√±o jitter opcional
+                    Vector3 pos = origin + new Vector3((x + 0.5f) * cellSize, yFinal,
+                                                       (y + 0.5f) * cellSize);
+
+                    if (houseJitter != Vector2.zero)
+                    {
+                        float jx = UnityEngine.Random.Range(-houseJitter.x, houseJitter.x);
+                        float jz = UnityEngine.Random.Range(-houseJitter.y, houseJitter.y);
+                        pos.x += jx; pos.z += jz;
+                    }
+
+                    Instantiate(housePrefab, pos, Quaternion.identity, housesParent);
+                }
+            }
+        }
+    }
+
+    // ============= Conexi√≥n por centros =============
     void ConnectLeafRooms(Leaf leaf, ref int conexiones)
     {
         if (leaf.left == null || leaf.right == null) return;
@@ -305,7 +395,6 @@ public class BSPDungeonGenerator : MonoBehaviour
 
     Room FindAnyRoom(Leaf leaf)
     {
-        // DFS hasta encontrar una room
         Stack<Leaf> stack = new();
         stack.Push(leaf);
         while (stack.Count > 0)
@@ -323,33 +412,17 @@ public class BSPDungeonGenerator : MonoBehaviour
         int x1 = a.CenterX, y1 = a.CenterY;
         int x2 = b.CenterX, y2 = b.CenterY;
 
-        // Si tenemos m·scara, intenta BFS para evitar agua:
-        if (buildableMask != null)
-        {
-            var path = FindPath(new Vector2Int(y1, x1), new Vector2Int(y2, x2));
-            if (path != null && path.Count > 0)
-            {
-                foreach (var p in path)
-                {
-                    map[p.x, p.y] = floorChar; // ojo: p es (y,x)
-                }
-                return;
-            }
-            // Si no encontrÛ, cae al conector "L" original (podrÌa cruzar agua)
-        }
-
-        // --- Conector original (L) ---
         void HLine(int y, int xa, int xb)
         {
             int start = Mathf.Min(xa, xb);
             int end = Mathf.Max(xa, xb);
-            for (int x = start; x <= end; x++) map[y, x] = floorChar;
+            for (int x = start; x <= end; x++) map[y, x] = floorChar; // ‚Üê PASILLO
         }
         void VLine(int x, int ya, int yb)
         {
             int start = Mathf.Min(ya, yb);
             int end = Mathf.Max(ya, yb);
-            for (int y = start; y <= end; y++) map[y, x] = floorChar;
+            for (int y = start; y <= end; y++) map[y, x] = floorChar; // ‚Üê PASILLO
         }
 
         if (corridorLogic == CorridorLogic.RandomOrder)
@@ -359,72 +432,17 @@ public class BSPDungeonGenerator : MonoBehaviour
         }
         else if (corridorLogic == CorridorLogic.HorizontalFirst)
         {
-            HLine(y1, x1, x2);
-            VLine(x2, y1, y2);
+            HLine(y1, x1, x2); VLine(x2, y1, y2);
         }
         else if (corridorLogic == CorridorLogic.VerticalFirst)
         {
-            VLine(x1, y1, y2);
-            HLine(y2, x1, x2);
+            VLine(x1, y1, y2); HLine(y2, x1, x2);
         }
-        else // StraightAxis
+        else
         {
             if (Mathf.Abs(x1 - x2) >= Mathf.Abs(y1 - y2)) HLine(y1, x1, x2);
             else VLine(x1, y1, y2);
         }
-    }
-
-    List<Vector2Int> FindPath(Vector2Int start, Vector2Int goal)
-    {
-        if (buildableMask == null)
-        {
-            // Sin m·scara = deja que el conector original haga su L
-            return null;
-        }
-
-        int H = buildableMask.GetLength(0);
-        int W = buildableMask.GetLength(1);
-
-        bool InB(int y, int x) => y >= 0 && y < H && x >= 0 && x < W;
-
-        var q = new Queue<Vector2Int>();
-        var prev = new Dictionary<Vector2Int, Vector2Int>();
-        var seen = new HashSet<Vector2Int>();
-
-        q.Enqueue(start);
-        seen.Add(start);
-
-        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-        while (q.Count > 0)
-        {
-            var cur = q.Dequeue();
-            if (cur == goal) break;
-
-            foreach (var d in dirs)
-            {
-                var nx = cur + d;
-                if (!InB(nx.y, nx.x)) continue;
-                if (!buildableMask[nx.y, nx.x]) continue; // evita agua/no construible
-
-                if (seen.Add(nx))
-                {
-                    prev[nx] = cur;
-                    q.Enqueue(nx);
-                }
-            }
-        }
-
-        if (!prev.ContainsKey(goal) && goal != start) return null; // no hubo camino
-                                                                   // reconstruir
-        var path = new List<Vector2Int>();
-        var p = goal;
-        path.Add(p);
-        while (p != start && prev.TryGetValue(p, out var pp))
-        {
-            p = pp; path.Add(p);
-        }
-        path.Reverse();
-        return path;
     }
 
     // ============= Player, Enemigos, Salida =============
@@ -451,7 +469,7 @@ public class BSPDungeonGenerator : MonoBehaviour
             {
                 int ex = Range(r.x, r.x + r.w - 1);
                 int ey = Range(r.y, r.y + r.h - 1);
-                if (map[ey, ex] == floorChar)
+                if (map[ey, ex] == roomChar) // ‚Üê s√≥lo dentro de HABITACI√ìN
                 {
                     map[ey, ex] = enemyChar;
                     placed++;
@@ -480,16 +498,15 @@ public class BSPDungeonGenerator : MonoBehaviour
         var outRoom = rooms[idx];
         int sx = outRoom.CenterX;
         int sy = outRoom.CenterY;
-        if (map[sy, sx] == floorChar) map[sy, sx] = exitChar;
+        if (map[sy, sx] == roomChar) map[sy, sx] = exitChar;
         else
         {
-            // busca primer piso libre
             for (int y = outRoom.y; y < outRoom.y + outRoom.h; y++)
             {
                 bool done = false;
                 for (int x = outRoom.x; x < outRoom.x + outRoom.w; x++)
                 {
-                    if (map[y, x] == floorChar) { map[y, x] = exitChar; done = true; break; }
+                    if (map[y, x] == roomChar) { map[y, x] = exitChar; done = true; break; }
                 }
                 if (done) break;
             }
@@ -499,14 +516,12 @@ public class BSPDungeonGenerator : MonoBehaviour
     // ============= Build Prefabs =============
     public void BuildPrefabs()
     {
-        // Limpia anterior
         if (builtParent != null) Destroy(builtParent.gameObject);
         builtParent = new GameObject("BSP_Built").transform;
         builtParent.SetParent(transform, false);
 
-        Vector3 origin = transform.position;
+        Vector3 origin = perlinRef != null ? perlinRef.transform.position : transform.position;
 
-        // Piso / Muro
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -518,16 +533,32 @@ public class BSPDungeonGenerator : MonoBehaviour
                 {
                     if (wallPrefab != null)
                     {
-                        pos.y = WorldYForCell(y, x, false); // pared sigue ondulaciÛn/mezcla del tier
+                        float wy = WorldYForCell(y, x, false);
+                        wy = ApplyPivotOffsetY(wallPrefab, wallPivot, wy, -wallExtraSink);
+                        pos.y = wy;
                         Instantiate(wallPrefab, pos, Quaternion.identity, builtParent);
                     }
                 }
-                else
+                else if (c == roomChar) // HABITACI√ìN
                 {
-                    if (floorPrefab != null)
+                    var prefab = roomFloorPrefab != null ? roomFloorPrefab : floorPrefab;
+                    if (prefab != null)
                     {
-                        pos.y = WorldYForCell(y, x, floorsUseTierFlatY); // piso plano exacto del tier
-                        Instantiate(floorPrefab, pos, Quaternion.identity, builtParent);
+                        float fy = WorldYForCell(y, x, floorsUseTierFlatY);
+                        fy = ApplyPivotOffsetY(prefab, floorPivot, fy, floorExtraLift);
+                        pos.y = fy;
+                        Instantiate(prefab, pos, Quaternion.identity, builtParent);
+                    }
+                }
+                else if (c == floorChar) // PASILLO
+                {
+                    var prefab = corridorFloorPrefab != null ? corridorFloorPrefab : floorPrefab;
+                    if (prefab != null)
+                    {
+                        float fy = WorldYForCell(y, x, floorsUseTierFlatY);
+                        fy = ApplyPivotOffsetY(prefab, floorPivot, fy, floorExtraLift);
+                        pos.y = fy;
+                        Instantiate(prefab, pos, Quaternion.identity, builtParent);
                     }
                 }
             }
@@ -542,87 +573,57 @@ public class BSPDungeonGenerator : MonoBehaviour
                 char c = map[y, x];
 
                 if (c == playerChar && playerMarkerPrefab != null)
+                {
+                    pos.y = WorldYForCell(y, x, true);
                     Instantiate(playerMarkerPrefab, pos + Vector3.up * 0.5f, Quaternion.identity, builtParent);
+                }
 
                 if (c == exitChar && exitMarkerPrefab != null)
+                {
+                    pos.y = WorldYForCell(y, x, true);
                     Instantiate(exitMarkerPrefab, pos + Vector3.up * 0.5f, Quaternion.identity, builtParent);
+                }
 
                 if (c == enemyChar && enemyPrefab != null)
+                {
+                    pos.y = WorldYForCell(y, x, true);
                     Instantiate(enemyPrefab, pos + Vector3.up * 0.5f, Quaternion.identity, builtParent);
+                }
             }
         }
-    }
 
-    // ============= Utilidades =============
-    void EnsurePRNG()
-    {
-        // Si quieres random por play, respeta useRandomSeed cada vez que generes
-        if (useRandomSeed)
-            seed = UnityEngine.Random.Range(int.MinValue / 2, int.MaxValue / 2);
-
-        if (prng == null)
-            prng = new System.Random(seed);
-    }
-    bool IsInsideMask(int y, int x)
-    {
-        return (buildableMask != null
-            && y >= 0 && y < buildableMask.GetLength(0)
-            && x >= 0 && x < buildableMask.GetLength(1));
-    }
-
-    bool IsBuildableCell(int y, int x)
-    {
-        if (buildableMask == null) return true;
-        if (!IsInsideMask(y, x)) return false;
-        return buildableMask[y, x];
-    }
-
-    bool RoomFitsMask(Room r)
-    {
-        if (buildableMask == null) return true;
-        for (int y = r.y; y < r.y + r.h; y++)
-            for (int x = r.x; x < r.x + r.w; x++)
-                if (!IsBuildableCell(y, x)) return false;
-        return true;
-    }
-
-    int Range(int minInclusive, int maxInclusive)
-    {
-        if (maxInclusive < minInclusive) (minInclusive, maxInclusive) = (maxInclusive, minInclusive);
-        return prng.Next(minInclusive, maxInclusive + 1);
-    }
-
-    float SamplePerlinY(int gridY, int gridX)
-    {
-        if (perlinRef == null) return 0f;
-        var map01 = perlinRef.GetHeight01Map();
-
-        // Clampear por seguridad (recuerda que tu map es [y,x])
-        gridY = Mathf.Clamp(gridY, 0, map01.GetLength(0) - 1);
-        gridX = Mathf.Clamp(gridX, 0, map01.GetLength(1) - 1);
-
-        float h01 = map01[gridY, gridX];
-        float y = perlinRef.heightCurve.Evaluate(h01) * perlinRef.heightMultiplier;
-        return y + yOffsetOnTerrain;
+        BuildHouses(perlinRef != null ? perlinRef.transform.position : transform.position);
     }
 
     float WorldYForCell(int gy, int gx, bool flatForFloor = false)
     {
         if (perlinRef == null) return yOffsetOnTerrain;
-
         float h01 = perlinRef.Height01Raw(gy, gx);
-        if (flatForFloor)
-        {
-            int ti = perlinRef.GetTierIndexFrom01(h01);
-            return perlinRef.GetTierFlatY(ti) + yOffsetOnTerrain;
-        }
-        else
-        {
-            return perlinRef.GetWorldYFrom01(h01) + yOffsetOnTerrain;
-        }
+        float y = flatForFloor
+            ? perlinRef.GetTierFlatY(perlinRef.GetTierIndexFrom01(h01))
+            : perlinRef.GetWorldYFrom01(h01);
+        return y + yOffsetOnTerrain;
     }
 
-    // Exponer mapa si se necesita post-procesar :)
+    float ApplyPivotOffsetY(GameObject prefab, PrefabPivot pivot, float y, float extra)
+    {
+        if (prefab == null) return y;
+        var rend = prefab.GetComponentInChildren<Renderer>();
+        if (rend == null) return y + extra;
+
+        float sizeY = rend.bounds.size.y;
+        if (pivot == PrefabPivot.Center) return y + sizeY * 0.5f + extra; // apoya base
+        return y + extra;
+    }
+
+    // ============= Utilidades =============
+    int Range(int minInclusive, int maxInclusive)
+    {
+        if (maxInclusive < minInclusive) (minInclusive, maxInclusive) = (maxInclusive, minInclusive);
+        EnsurePRNG();
+        return prng.Next(minInclusive, maxInclusive + 1);
+    }
+
     public char[,] GetMap() => map;
     public List<Room> GetRooms() => rooms;
 }

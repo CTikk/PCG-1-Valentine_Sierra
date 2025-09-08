@@ -4,39 +4,19 @@ using UnityEngine;
 public class TurtleDrawer : MonoBehaviour
 {
     [Header("Tortuga")]
-    [Tooltip("Longitud base del avance")]
     public float step = 0.2f;
-
-    [Tooltip("Ángulo base en grados para rotaciones")]
     public float angle = 25f;
-
-    [Tooltip("Habilita rotaciones 3D (&,^,\\,/,|). Si está OFF, solo + y - (yaw)")]
     public bool is3D = false;
 
     [Header("Render")]
-    [Tooltip("Si ON usa LineRenderer; si OFF usa cilindros por segmento")]
     public bool useLineRenderer = true;
-
-    [Tooltip("Material del LineRenderer (p.ej. Sprites/Default)")]
     public Material lineMaterial;
-
-    [Tooltip("Grosor de línea o radio del cilindro")]
     public float lineWidth = 0.05f;
-
-    [Tooltip("Prefab de cilindro (eje Y) para modo sin LineRenderer")]
     public GameObject cylinderPrefab;
-
-    [Tooltip("Padre de todos los strokes/segmentos generados")]
     public Transform drawParent;
-
-    [Tooltip("Dibujar en coordenadas de mundo (recomendado TRUE)")]
     public bool worldSpaceLines = true;
 
-    struct TurtleState
-    {
-        public Vector3 pos;
-        public Quaternion rot;
-    }
+    struct TurtleState { public Vector3 pos; public Quaternion rot; }
 
     void EnsureParent()
     {
@@ -65,13 +45,9 @@ public class TurtleDrawer : MonoBehaviour
         }
     }
 
-    // Lee un número opcional pegado al símbolo (ej: F2.5, +30, -45). Si no hay número, devuelve false y value=1.
     bool TryReadFloat(string s, ref int i, out float value)
     {
-        int start = i + 1;
-        int j = start;
-        bool sawDigit = false;
-
+        int start = i + 1, j = start; bool sawDigit = false;
         if (j < s.Length && (s[j] == '+' || s[j] == '-')) j++;
         while (j < s.Length)
         {
@@ -79,34 +55,35 @@ public class TurtleDrawer : MonoBehaviour
             if ((ch >= '0' && ch <= '9') || ch == '.') { sawDigit = true; j++; }
             else break;
         }
-
         if (!sawDigit) { value = 1f; return false; }
-
         string token = s.Substring(start, j - start);
         if (float.TryParse(token, System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out value))
-        {
-            i = j - 1; // avanzamos el índice del for principal
-            return true;
-        }
-        value = 1f;
-        return false;
+        { i = j - 1; return true; }
+        value = 1f; return false;
     }
 
-    public void Draw(string sequence)
+    // ========= NUEVO: Dibuja con posición/rotación inicial explícita =========
+    public void DrawAt(string sequence, Vector3 startPosition, Quaternion startRotation)
+    {
+        InternalDraw(sequence, startPosition, startRotation);
+    }
+
+    // Mantén compatibilidad con el controller actual
+    public void Draw(string sequence) => InternalDraw(sequence, Vector3.zero, Quaternion.identity);
+
+    void InternalDraw(string sequence, Vector3 startPos, Quaternion startRot)
     {
         EnsureParent();
         Clear();
 
-        Vector3 pos = Vector3.zero;
-        Quaternion rot = Quaternion.identity;
+        Vector3 pos = startPos;             // ? ahora arrancamos donde nos pidas
+        Quaternion rot = startRot;
         var stack = new Stack<TurtleState>();
 
-        // Múltiples strokes (un LineRenderer por trazo)
         var strokes = new List<List<Vector3>>();
         List<Vector3> currentStroke = null;
-
-        bool penDown = false; // “lápiz” levantado hasta que llegue un F
+        bool penDown = false;
 
         void StartNewStroke()
         {
@@ -121,16 +98,15 @@ public class TurtleDrawer : MonoBehaviour
 
             switch (c)
             {
-                case 'F': // avanzar y dibujar (con multiplicador opcional)
+                case 'F':
                     {
                         float k; TryReadFloat(sequence, ref i, out k);
                         if (useLineRenderer && !penDown) { StartNewStroke(); penDown = true; }
-
                         Vector3 newPos = pos + rot * Vector3.forward * (step * k);
 
                         if (useLineRenderer)
                         {
-                            currentStroke.Add(newPos);
+                            currentStroke.Add(newPos); // ? ya en mundo si worldSpaceLines=true
                         }
                         else if (cylinderPrefab != null)
                         {
@@ -138,11 +114,20 @@ public class TurtleDrawer : MonoBehaviour
                             Vector3 dir = (newPos - pos);
                             float len = dir.magnitude;
 
-                            seg.transform.position = worldSpaceLines
-                                ? drawParent.TransformPoint(pos + dir * 0.5f)
-                                : pos + dir * 0.5f;
-
-                            seg.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(90, 0, 0);
+                            if (worldSpaceLines)
+                            {
+                                seg.transform.position = pos + dir * 0.5f;
+                                seg.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(90, 0, 0);
+                            }
+                            else
+                            {
+                                // interpretar pos como local al drawParent
+                                Vector3 localPos = drawParent.InverseTransformPoint(pos);
+                                Vector3 localNew = drawParent.InverseTransformPoint(newPos);
+                                Vector3 localDir = (localNew - localPos);
+                                seg.transform.localPosition = localPos + localDir * 0.5f;
+                                seg.transform.localRotation = Quaternion.LookRotation(localDir.normalized, Vector3.up) * Quaternion.Euler(90, 0, 0);
+                            }
                             seg.transform.localScale = new Vector3(lineWidth, len * 0.5f, lineWidth);
                         }
 
@@ -150,15 +135,9 @@ public class TurtleDrawer : MonoBehaviour
                         break;
                     }
 
-                case 'f': // avanzar sin dibujar (con multiplicador)
-                    {
-                        float k; TryReadFloat(sequence, ref i, out k);
-                        pos += rot * Vector3.forward * (step * k);
-                        penDown = false; // próximo F inicia un stroke nuevo
-                        break;
-                    }
+                case 'f':
+                    { float k; TryReadFloat(sequence, ref i, out k); pos += rot * Vector3.forward * (step * k); penDown = false; break; }
 
-                // Rotaciones 2D (+/-) y 3D (&,^,\,/)
                 case '+': { float k; TryReadFloat(sequence, ref i, out k); rot = rot * Quaternion.Euler(0f, angle * k, 0f); break; }
                 case '-': { float k; TryReadFloat(sequence, ref i, out k); rot = rot * Quaternion.Euler(0f, -angle * k, 0f); break; }
                 case '&': if (is3D) { float k; TryReadFloat(sequence, ref i, out k); rot = rot * Quaternion.Euler(angle * k, 0f, 0f); } break;
@@ -167,52 +146,45 @@ public class TurtleDrawer : MonoBehaviour
                 case '/': if (is3D) { float k; TryReadFloat(sequence, ref i, out k); rot = rot * Quaternion.Euler(0f, 0f, -angle * k); } break;
                 case '|': rot = rot * Quaternion.Euler(0f, 180f, 0f); break;
 
-                case '[': // push estado
-                    stack.Push(new TurtleState { pos = pos, rot = rot });
-                    break;
-
-                case ']': // pop estado + levantar lápiz para cortar stroke
+                case '[': stack.Push(new TurtleState { pos = pos, rot = rot }); break;
+                case ']':
                     if (stack.Count > 0)
                     {
                         var s = stack.Pop();
-                        pos = s.pos;
-                        rot = s.rot;
-                        penDown = false;
+                        pos = s.pos; rot = s.rot; penDown = false;
                     }
                     break;
 
-                default:
-                    // ignora símbolos no geométricos (X,Y, etc.)
-                    break;
+                default: break; // ignora X/Y u otros símbolos no geométricos
             }
         }
 
-        // Render de strokes (LineRenderers)
         if (useLineRenderer && strokes.Count > 0)
         {
             foreach (var poly in strokes)
             {
                 if (poly == null || poly.Count < 2) continue;
-
-                Vector3[] pts = poly.ToArray();
-                if (worldSpaceLines)
-                {
-                    for (int p = 0; p < pts.Length; p++)
-                        pts[p] = drawParent.TransformPoint(pts[p]);
-                }
-
                 var go = new GameObject("Stroke");
                 go.transform.SetParent(drawParent, false);
 
                 var lr = go.AddComponent<LineRenderer>();
-                lr.positionCount = pts.Length;
-                lr.SetPositions(pts);
+                lr.positionCount = poly.Count;
                 lr.useWorldSpace = worldSpaceLines;
                 lr.material = lineMaterial != null ? lineMaterial : new Material(Shader.Find("Sprites/Default"));
                 lr.startWidth = lr.endWidth = lineWidth;
                 lr.numCornerVertices = lr.numCapVertices = 4;
                 lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 lr.receiveShadows = false;
+
+                if (worldSpaceLines) lr.SetPositions(poly.ToArray());
+                else
+                {
+                    // convertir puntos mundo -> locales al drawParent
+                    Vector3[] local = new Vector3[poly.Count];
+                    for (int p = 0; p < poly.Count; p++)
+                        local[p] = drawParent.InverseTransformPoint(poly[p]);
+                    lr.SetPositions(local);
+                }
             }
         }
     }
